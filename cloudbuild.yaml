@@ -1,0 +1,39 @@
+steps:
+- id: 'tf plan'
+  name: 'hashicorp/terraform:latest'
+  entrypoint: 'sh'
+  args: 
+  - '-c'
+  - | 
+      terraform init
+      terraform plan
+      terraform apply --auto-approve
+- name: 'gcr.io/cloud-builders/docker'
+  id: Build
+  args:
+  - 'build'
+  - '-t'
+  - 'europe-west1-docker.pkg.dev/dev-gke-401810/web-app-repo/web-apps:latest'
+  - '.'      
+- name: 'gcr.io/cloud-builders/docker'
+  id: Push
+  args:
+  - 'push'
+  - 'europe-west1-docker.pkg.dev/dev-gke-401810/web-app-repo/web-apps:latest'
+
+- name: 'gcr.io/cloud-builders/gcloud'
+  id: Deploy
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+         PROJECT=$$(gcloud config get-value core/project)          
+         gke-gcloud-auth-plugin --version
+         export USE_GKE_GCLOUD_AUTH_PLUGIN=True
+         gcloud container clusters get-credentials "dev-cluster" --project "dev-gke-401810"  --zone "europe-west1-b"  
+         kubectl replace --force -f deploy.yml
+
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  dynamicSubstitutions: true
